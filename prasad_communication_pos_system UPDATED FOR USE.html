@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prasad Communication - POS System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f6d365 0%, #fda085 20%, #fbc2eb 40%, #a6c1ee 60%, #c2e9fb 80%, #a1c4fd 100%);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .floating-icon {
+            position: fixed;
+            color: rgba(255, 255, 255, 0.25);
+            pointer-events: none;
+            z-index: 0;
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(10deg); }
+        }
+    </style>
+</head>
+<body class="relative overflow-x-hidden">
+
+    <!-- Floating Background Icons -->
+    <i class="fa-solid fa-pen-nib floating-icon text-6xl top-10 left-10" style="animation-delay: 0s;"></i>
+    <i class="fa-solid fa-calculator floating-icon text-7xl top-1/4 right-12" style="animation-delay: 1s;"></i>
+    <i class="fa-solid fa-book-open floating-icon text-6xl bottom-20 left-16" style="animation-delay: 2s;"></i>
+    <i class="fa-solid fa-scissors floating-icon text-5xl bottom-10 right-1/4" style="animation-delay: 1.5s;"></i>
+    <i class="fa-solid fa-print floating-icon text-6xl top-1/3 left-1/3" style="animation-delay: 2.5s;"></i>
+
+    <div class="relative z-10 flex flex-col min-h-screen">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg p-4 sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white text-red-600 p-2 rounded-lg font-black text-2xl shadow-inner">
+                        PC
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold tracking-wide">PRASAD COMMUNICATION</h1>
+                        <p class="text-xs text-red-100">Smart Billing, Stock Tracking & WhatsApp Invoice</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="openCustomerModal()" class="bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-users"></i> Customers
+                    </button>
+                    <button onclick="openInventoryModal()" class="bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg font-medium transition text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-boxes-stacked"></i> Inventory & Stock
+                    </button>
+                    <button onclick="closeShopAndShowProfit()" class="bg-yellow-400 hover:bg-yellow-300 text-red-900 font-bold px-3 py-2 rounded-lg shadow transition text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-lock"></i> Close Shop & Profit
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <main class="max-w-7xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+            
+            <!-- Left Panel: Scanner & Stock Entry -->
+            <div class="lg:col-span-5 space-y-6">
+                
+                <!-- Customer Selection Card -->
+                <div class="glass-card p-5 rounded-2xl shadow-xl">
+                    <h2 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-user-tag text-red-600"></i> Customer Profile
+                    </h2>
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="text" id="custName" placeholder="Customer Name" class="w-full p-2.5 bg-white border rounded-lg text-sm focus:ring-2 focus:ring-red-400">
+                            <input type="tel" id="custPhone" placeholder="Mobile No. (10 digits)" class="w-full p-2.5 bg-white border rounded-lg text-sm focus:ring-2 focus:ring-red-400" oninput="autoSelectCustomer(this.value)">
+                        </div>
+                        <div>
+                            <select id="savedCustomersSelect" onchange="selectSavedCustomer(this.value)" class="w-full p-2 bg-white border rounded-lg text-xs font-medium text-gray-700">
+                                <option value="">-- Select Saved Customer --</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Barcode Scanner Card -->
+                <div class="glass-card p-5 rounded-2xl shadow-xl">
+                    <h2 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-barcode text-red-600"></i> Scan Barcode
+                    </h2>
+                    <div id="reader" class="w-full rounded-xl overflow-hidden border-2 border-dashed border-gray-300 bg-white mb-3"></div>
+                    
+                    <div>
+                        <label class="text-xs font-semibold text-gray-600 block mb-1">SCAN / ENTER BARCODE (PRESS ENTER)</label>
+                        <div class="relative">
+                            <input type="text" id="barcodeInput" autofocus 
+                                class="w-full pl-10 pr-4 py-3 bg-white border-2 border-red-400 rounded-xl font-bold text-lg text-gray-800 focus:outline-none focus:ring-4 focus:ring-red-200" 
+                                placeholder="Scan item barcode..." 
+                                onkeydown="handleBarcodeEnter(event)">
+                            <i class="fa-solid fa-barcode absolute left-3 top-4 text-gray-400"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stock & Product Entry -->
+                <div class="glass-card p-5 rounded-2xl shadow-xl">
+                    <h2 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-plus-circle text-red-600"></i> Add Stock / New Product
+                    </h2>
+                    <form onsubmit="saveProduct(event)" class="space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="text" id="invBarcode" placeholder="Barcode ID" class="w-full p-2.5 bg-white border rounded-lg text-sm focus:ring-2 focus:ring-red-400" required>
+                            <input type="text" id="invName" placeholder="Product Name" class="w-full p-2.5 bg-white border rounded-lg text-sm focus:ring-2 focus:ring-red-400" required>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="text-xs text-gray-600 font-semibold">Cost (₹)</label>
+                                <input type="number" step="0.01" id="invCost" placeholder="0.00" class="w-full p-2 bg-white border rounded-lg text-sm focus:ring-2 focus:ring-red-400" required>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600 font-semibold">Price (₹)</label>
+                                <input type="number" step="0.01" id="invPrice" placeholder="0.00" class="w-full p-2 bg-white border rounded-lg text-sm focus:ring-2 focus:ring-red-400" required>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600 font-semibold">Stock Qty</label>
+                                <input type="number" id="invStock" placeholder="0" min="0" class="w-full p-2 bg-white border rounded-lg text-sm focus:ring-2 focus:ring-red-400" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-lg shadow transition">
+                            Save Product & Update Stock
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+
+            <!-- Right Panel: Invoice -->
+            <div class="lg:col-span-7 flex flex-col">
+                <div class="glass-card p-6 rounded-2xl shadow-xl flex-1 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center border-b pb-4 mb-4">
+                            <div>
+                                <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-receipt text-red-600"></i> Current Invoice
+                                </h2>
+                                <p class="text-xs text-gray-500">Add products to generate bill</p>
+                            </div>
+                            <button onclick="clearCart()" class="text-sm bg-red-100 hover:bg-red-200 text-red-600 font-medium px-3 py-1.5 rounded-lg transition">
+                                <i class="fa-solid fa-trash-can"></i> Clear Cart
+                            </button>
+                        </div>
+
+                        <!-- Invoice Table -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b text-xs font-semibold text-gray-500 uppercase">
+                                        <th class="py-3 px-2">Item</th>
+                                        <th class="py-3 px-2 text-center">Avail Stock</th>
+                                        <th class="py-3 px-2 text-center">Price</th>
+                                        <th class="py-3 px-2 text-center">Qty</th>
+                                        <th class="py-3 px-2 text-right">Subtotal</th>
+                                        <th class="py-3 px-2 text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cartTableBody">
+                                    <!-- Dynamic Rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Invoice Summary & Action Buttons -->
+                    <div class="border-t pt-4 mt-6 space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600 font-medium">Total Items: <span id="cartCount" class="font-bold text-gray-800">0</span></span>
+                            <div class="text-right">
+                                <span class="text-xs text-gray-500 block uppercase tracking-wider font-semibold">Total Amount</span>
+                                <span id="cartTotal" class="text-3xl font-black text-red-600">₹0.00</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <button onclick="checkout(false)" class="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-3.5 rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-circle-check"></i> Complete Sale Only
+                            </button>
+                            <button onclick="checkout(true)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center gap-2">
+                                <i class="fa-brands fa-whatsapp text-xl"></i> Complete & Share on WhatsApp
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal: Profit Summary -->
+    <div id="profitModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-5">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-red-600"></i> Daily Profit Report
+                </h3>
+                <button onclick="closeModal('profitModal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-3 bg-gray-50 p-4 rounded-xl border">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-gray-600">Total Sales (विक्री):</span>
+                    <span id="repTotalSales" class="font-bold text-gray-800">₹0.00</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-gray-600">Total Purchase Cost (खरेदी):</span>
+                    <span id="repTotalCost" class="font-bold text-gray-800">₹0.00</span>
+                </div>
+                <hr class="border-gray-200">
+                <div class="flex justify-between items-center text-lg font-black">
+                    <span class="text-gray-800">Net Profit (निव्वळ नफा):</span>
+                    <span id="repNetProfit" class="text-emerald-600">₹0.00</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="closeModal('profitModal')" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2.5 rounded-xl transition">
+                    Close
+                </button>
+                <button onclick="resetDaySales()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-xl transition">
+                    Reset Sales
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Inventory & Stock Management -->
+    <div id="inventoryModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 max-w-3xl w-full shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-boxes-stacked text-red-600"></i> Stock & Inventory Details
+                </h3>
+                <button onclick="closeModal('inventoryModal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <div class="overflow-y-auto flex-1">
+                <table class="w-full text-left border-collapse">
+                    <thead class="sticky top-0 bg-gray-100">
+                        <tr class="text-xs font-semibold text-gray-600 uppercase">
+                            <th class="p-2">Barcode</th>
+                            <th class="p-2">Product Name</th>
+                            <th class="p-2 text-right">Cost (₹)</th>
+                            <th class="p-2 text-right">Price (₹)</th>
+                            <th class="p-2 text-center">Remaining Stock</th>
+                            <th class="p-2 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTableBody" class="divide-y text-sm">
+                        <!-- Inventory Stock Rows -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Saved Customers -->
+    <div id="customerModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-users text-red-600"></i> Saved Customers Profile
+                </h3>
+                <button onclick="closeModal('customerModal')" class="text-gray-400 hover:text-gray-600">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <div class="overflow-y-auto flex-1">
+                <table class="w-full text-left border-collapse">
+                    <thead class="sticky top-0 bg-gray-100">
+                        <tr class="text-xs font-semibold text-gray-600 uppercase">
+                            <th class="p-2">Customer Name</th>
+                            <th class="p-2">Mobile Number</th>
+                            <th class="p-2 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customerTableBody" class="divide-y text-sm">
+                        <!-- Customer Rows -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Storage Setup with Stock Field
+        let inventory = JSON.parse(localStorage.getItem('pc_inventory')) || {
+            '101': { name: 'Notebook A4', costPrice: 30, sellingPrice: 50, stock: 25 },
+            '102': { name: 'Gel Pen Blue', costPrice: 5, sellingPrice: 10, stock: 100 }
+        };
+        let customers = JSON.parse(localStorage.getItem('pc_customers')) || [
+            { name: 'Rahul Sharma', phone: '9876543210' }
+        ];
+        let salesHistory = JSON.parse(localStorage.getItem('pc_sales')) || [];
+        let currentCart = [];
+        let html5QrcodeScanner = null;
+        let lastScannedCode = '';
+        let scanCooldown = false;
+
+        // Initialize Barcode Camera Scanner
+        function initScanner() {
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 15, qrbox: 250 });
+            html5QrcodeScanner.render(onScanSuccess);
+        }
+
+        function onScanSuccess(decodedText) {
+            if (scanCooldown && lastScannedCode === decodedText) return;
+            addItemToCart(decodedText);
+            lastScannedCode = decodedText;
+            scanCooldown = true;
+            setTimeout(() => { scanCooldown = false; }, 2000);
+        }
+
+        // Instant Scan via Enter Key Input
+        function handleBarcodeEnter(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const barcode = e.target.value.trim();
+                if (barcode) {
+                    addItemToCart(barcode);
+                    e.target.value = '';
+                }
+            }
+        }
+
+        // Add Item to Cart with Stock Verification
+        function addItemToCart(barcode) {
+            const item = inventory[barcode];
+            if (!item) {
+                alert(`Product not found for Barcode: ${barcode}`);
+                document.getElementById('invBarcode').value = barcode;
+                return;
+            }
+
+            const existingIndex = currentCart.findIndex(c => c.barcode === barcode);
+            const currentQtyInCart = existingIndex > -1 ? currentCart[existingIndex].qty : 0;
+
+            if (item.stock <= currentQtyInCart) {
+                alert(`Out of stock! Only ${item.stock} unit(s) left for "${item.name}".`);
+                return;
+            }
+
+            if (existingIndex > -1) {
+                currentCart[existingIndex].qty += 1;
+            } else {
+                currentCart.push({
+                    barcode: barcode,
+                    name: item.name,
+                    costPrice: parseFloat(item.costPrice),
+                    sellingPrice: parseFloat(item.sellingPrice),
+                    qty: 1
+                });
+            }
+
+            renderCart();
+        }
+
+        // Render Cart Table UI
+        function renderCart() {
+            const tbody = document.getElementById('cartTableBody');
+            tbody.innerHTML = '';
+            let total = 0;
+            let count = 0;
+
+            if (currentCart.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="py-8 text-center text-gray-400">
+                            <i class="fa-solid fa-basket-shopping text-4xl mb-2 block"></i>
+                            No items in invoice yet.
+                        </td>
+                    </tr>
+                `;
+            } else {
+                currentCart.forEach((item, index) => {
+                    const stockAvailable = inventory[item.barcode] ? inventory[item.barcode].stock : 0;
+                    const subtotal = item.sellingPrice * item.qty;
+                    total += subtotal;
+                    count += item.qty;
+
+                    tbody.innerHTML += `
+                        <tr class="border-b hover:bg-white/50">
+                            <td class="py-3 px-2 font-semibold text-gray-800">${item.name}</td>
+                            <td class="py-3 px-2 text-center text-xs font-bold text-blue-600 bg-blue-50 rounded">${stockAvailable - item.qty} left</td>
+                            <td class="py-3 px-2 text-center text-gray-600">₹${item.sellingPrice.toFixed(2)}</td>
+                            <td class="py-3 px-2 text-center">
+                                <div class="flex items-center justify-center gap-2">
+                                    <button onclick="updateQty(${index}, -1)" class="w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 font-bold flex items-center justify-center">-</button>
+                                    <span class="font-bold">${item.qty}</span>
+                                    <button onclick="updateQty(${index}, 1)" class="w-6 h-6 rounded bg-gray-200 hover:bg-gray-300 font-bold flex items-center justify-center">+</button>
+                                </div>
+                            </td>
+                            <td class="py-3 px-2 text-right font-bold text-gray-800">₹${subtotal.toFixed(2)}</td>
+                            <td class="py-3 px-2 text-center">
+                                <button onclick="removeItem(${index})" class="text-red-500 hover:text-red-700">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            document.getElementById('cartTotal').innerText = `₹${total.toFixed(2)}`;
+            document.getElementById('cartCount').innerText = count;
+        }
+
+        function updateQty(index, delta) {
+            const cartItem = currentCart[index];
+            const stockAvailable = inventory[cartItem.barcode].stock;
+
+            if (delta > 0 && cartItem.qty + delta > stockAvailable) {
+                alert(`Cannot add more. Only ${stockAvailable} available in stock!`);
+                return;
+            }
+
+            cartItem.qty += delta;
+            if (cartItem.qty <= 0) {
+                currentCart.splice(index, 1);
+            }
+            renderCart();
+        }
+
+        function removeItem(index) {
+            currentCart.splice(index, 1);
+            renderCart();
+        }
+
+        function clearCart() {
+            currentCart = [];
+            renderCart();
+        }
+
+        // Save Inventory & Stock Item
+        function saveProduct(e) {
+            e.preventDefault();
+            const barcode = document.getElementById('invBarcode').value.trim();
+            const name = document.getElementById('invName').value.trim();
+            const costPrice = parseFloat(document.getElementById('invCost').value);
+            const sellingPrice = parseFloat(document.getElementById('invPrice').value);
+            const stock = parseInt(document.getElementById('invStock').value);
+
+            inventory[barcode] = { name, costPrice, sellingPrice, stock };
+            localStorage.setItem('pc_inventory', JSON.stringify(inventory));
+
+            alert(`Product "${name}" saved with ${stock} stock quantity!`);
+            e.target.reset();
+        }
+
+        // Customer Profile Handlers
+        function autoSelectCustomer(phone) {
+            const found = customers.find(c => c.phone === phone.trim());
+            if (found) {
+                document.getElementById('custName').value = found.name;
+            }
+        }
+
+        function selectSavedCustomer(phone) {
+            const found = customers.find(c => c.phone === phone);
+            if (found) {
+                document.getElementById('custName').value = found.name;
+                document.getElementById('custPhone').value = found.phone;
+            }
+        }
+
+        function updateCustomerDropdown() {
+            const select = document.getElementById('savedCustomersSelect');
+            select.innerHTML = '<option value="">-- Select Saved Customer --</option>';
+            customers.forEach(c => {
+                select.innerHTML += `<option value="${c.phone}">${c.name} (${c.phone})</option>`;
+            });
+        }
+
+        // Checkout & Deduct Stock
+        function checkout(sendWhatsApp = false) {
+            if (currentCart.length === 0) {
+                alert('Invoice is empty!');
+                return;
+            }
+
+            const name = document.getElementById('custName').value.trim();
+            const phone = document.getElementById('custPhone').value.trim();
+
+            if (sendWhatsApp && (!phone || phone.length < 10)) {
+                alert('Please enter a valid 10-digit mobile number to send WhatsApp bill!');
+                return;
+            }
+
+            // Save Customer Profile if new
+            if (phone && name) {
+                const index = customers.findIndex(c => c.phone === phone);
+                if (index > -1) {
+                    customers[index].name = name;
+                } else {
+                    customers.push({ name, phone });
+                }
+                localStorage.setItem('pc_customers', JSON.stringify(customers));
+                updateCustomerDropdown();
+            }
+
+            // Deduct Stock Quantity
+            currentCart.forEach(item => {
+                if (inventory[item.barcode]) {
+                    inventory[item.barcode].stock = Math.max(0, inventory[item.barcode].stock - item.qty);
+                }
+            });
+            localStorage.setItem('pc_inventory', JSON.stringify(inventory));
+
+            // Record Sales History
+            salesHistory.push(...currentCart);
+            localStorage.setItem('pc_sales', JSON.stringify(salesHistory));
+
+            // WhatsApp Message Generator
+            if (sendWhatsApp) {
+                let billText = `*PRASAD COMMUNICATION*\n`;
+                billText += `------------------------------\n`;
+                billText += `Customer: ${name || 'Valued Customer'}\n`;
+                billText += `Date: ${new Date().toLocaleDateString()}\n`;
+                billText += `------------------------------\n`;
+                
+                let grandTotal = 0;
+                currentCart.forEach(item => {
+                    const sub = item.sellingPrice * item.qty;
+                    grandTotal += sub;
+                    billText += `${item.name} x ${item.qty} = ₹${sub.toFixed(2)}\n`;
+                });
+
+                billText += `------------------------------\n`;
+                billText += `*Total Amount: ₹${grandTotal.toFixed(2)}*\n\n`;
+                billText += `Thank you for shopping with us! 🙏`;
+
+                const formattedPhone = phone.startsWith('91') ? phone : `91${phone}`;
+                const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(billText)}`;
+                window.open(waUrl, '_blank');
+            }
+
+            alert('Sale completed and stock updated successfully!');
+            clearCart();
+            document.getElementById('custName').value = '';
+            document.getElementById('custPhone').value = '';
+            document.getElementById('savedCustomersSelect').value = '';
+            document.getElementById('barcodeInput').focus();
+        }
+
+        // Net Profit Calculation & Report
+        function closeShopAndShowProfit() {
+            let totalSales = 0;
+            let totalCost = 0;
+
+            salesHistory.forEach(item => {
+                totalSales += item.sellingPrice * item.qty;
+                totalCost += item.costPrice * item.qty;
+            });
+
+            const netProfit = totalSales - totalCost;
+
+            document.getElementById('repTotalSales').innerText = `₹${totalSales.toFixed(2)}`;
+            document.getElementById('repTotalCost').innerText = `₹${totalCost.toFixed(2)}`;
+            document.getElementById('repNetProfit').innerText = `₹${netProfit.toFixed(2)}`;
+
+            document.getElementById('profitModal').classList.remove('hidden');
+        }
+
+        // Open Inventory & Stock Modal
+        function openInventoryModal() {
+            const tbody = document.getElementById('inventoryTableBody');
+            tbody.innerHTML = '';
+
+            Object.keys(inventory).forEach(barcode => {
+                const item = inventory[barcode];
+                const stockColor = item.stock <= 5 ? 'text-red-600 font-bold' : 'text-gray-800';
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="p-2 font-mono text-xs">${barcode}</td>
+                        <td class="p-2 font-medium">${item.name}</td>
+                        <td class="p-2 text-right">₹${item.costPrice.toFixed(2)}</td>
+                        <td class="p-2 text-right font-semibold">₹${item.sellingPrice.toFixed(2)}</td>
+                        <td class="p-2 text-center ${stockColor}">
+                            <input type="number" value="${item.stock}" onchange="updateDirectStock('${barcode}', this.value)" class="w-16 p-1 border rounded text-center font-bold">
+                        </td>
+                        <td class="p-2 text-center">
+                            <button onclick="deleteInventoryItem('${barcode}')" class="text-red-500 hover:text-red-700">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('inventoryModal').classList.remove('hidden');
+        }
+
+        function updateDirectStock(barcode, val) {
+            const newStock = parseInt(val);
+            if (!isNaN(newStock) && newStock >= 0) {
+                inventory[barcode].stock = newStock;
+                localStorage.setItem('pc_inventory', JSON.stringify(inventory));
+                renderCart();
+            }
+        }
+
+        function deleteInventoryItem(barcode) {
+            if (confirm(`Delete item ${barcode}?`)) {
+                delete inventory[barcode];
+                localStorage.setItem('pc_inventory', JSON.stringify(inventory));
+                openInventoryModal();
+            }
+        }
+
+        // Open Customer Modal
+        function openCustomerModal() {
+            const tbody = document.getElementById('customerTableBody');
+            tbody.innerHTML = '';
+
+            customers.forEach((c, index) => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="p-2 font-medium">${c.name}</td>
+                        <td class="p-2 font-mono text-xs">${c.phone}</td>
+                        <td class="p-2 text-center">
+                            <button onclick="deleteCustomer(${index})" class="text-red-500 hover:text-red-700">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('customerModal').classList.remove('hidden');
+        }
+
+        function deleteCustomer(index) {
+            if (confirm('Delete this customer profile?')) {
+                customers.splice(index, 1);
+                localStorage.setItem('pc_customers', JSON.stringify(customers));
+                updateCustomerDropdown();
+                openCustomerModal();
+            }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        function resetDaySales() {
+            if (confirm('Are you sure you want to reset today\'s sales history?')) {
+                salesHistory = [];
+                localStorage.removeItem('pc_sales');
+                closeModal('profitModal');
+                alert('Sales reset done.');
+            }
+        }
+
+        window.onload = function() {
+            initScanner();
+            renderCart();
+            updateCustomerDropdown();
+        };
+    </script>
+</body>
+</html>
